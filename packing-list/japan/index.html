@@ -441,7 +441,7 @@ Generate My Packing List
 <div class="bg-surface-container-low p-4 flex justify-between items-center border-b border-outline-variant cursor-pointer hover:bg-surface-container transition-colors">
 <div class="flex items-center gap-3">
 <h3 class="font-title-lg text-title-lg text-text-rich">Clothing</h3>
-<span class="bg-primary-fixed text-on-primary-fixed-variant px-2 py-0.5 rounded-full font-label-sm text-label-sm">11 items</span>
+<span class="bg-primary-fixed text-on-primary-fixed-variant px-2 py-0.5 rounded-full font-label-sm text-label-sm">3 items</span>
 </div>
 <span class="material-symbols-outlined text-on-surface-variant">expand_less</span>
 </div>
@@ -482,7 +482,7 @@ Generate My Packing List
 <div class="bg-surface-container-low p-4 flex justify-between items-center border-b border-outline-variant cursor-pointer hover:bg-surface-container transition-colors">
 <div class="flex items-center gap-3">
 <h3 class="font-title-lg text-title-lg text-text-rich">Documents &amp; Money</h3>
-<span class="bg-primary-fixed text-on-primary-fixed-variant px-2 py-0.5 rounded-full font-label-sm text-label-sm">6 items</span>
+<span class="bg-primary-fixed text-on-primary-fixed-variant px-2 py-0.5 rounded-full font-label-sm text-label-sm">2 items</span>
 </div>
 <span class="material-symbols-outlined text-on-surface-variant">expand_less</span>
 </div>
@@ -608,4 +608,27 @@ Generate My Packing List
         </label>
     </template>
     
-</body></html>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    // Select all category headers in the static sample list
+    const headers = document.querySelectorAll('.cursor-pointer.hover\\:bg-surface-container');
+    headers.forEach(header => {
+        header.addEventListener('click', () => {
+            // Find the content div right after the header
+            const content = header.nextElementSibling;
+            const icon = header.querySelector('.material-symbols-outlined');
+            
+            if (content.style.display === 'none') {
+                content.style.display = 'block';
+                if (icon) icon.textContent = 'expand_less';
+            } else {
+                content.style.display = 'none';
+                if (icon) icon.textContent = 'expand_more';
+            }
+        });
+    });
+});
+</script>
+</body>
+</html>

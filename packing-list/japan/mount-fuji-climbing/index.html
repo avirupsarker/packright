@@ -212,5 +212,28 @@
     <p class="text-center text-sm mt-8">&copy; 2026 PackRight. All rights reserved.</p>
 </footer>
 
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    // Select all category headers in the static sample list
+    const headers = document.querySelectorAll('.cursor-pointer.hover\\:bg-surface-container');
+    headers.forEach(header => {
+        header.addEventListener('click', () => {
+            // Find the content div right after the header
+            const content = header.nextElementSibling;
+            const icon = header.querySelector('.material-symbols-outlined');
+            
+            if (content.style.display === 'none') {
+                content.style.display = 'block';
+                if (icon) icon.textContent = 'expand_less';
+            } else {
+                content.style.display = 'none';
+                if (icon) icon.textContent = 'expand_more';
+            }
+        });
+    });
+});
+</script>
 </body>
+
 </html>
