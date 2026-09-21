@@ -374,7 +374,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
         startLoading();
         try {
-            const data = await API.getPackingChecklist(finalPrompt, appState.clarifierAnswers);
+            // Stage 1: Extraction
+            const tripContext = await API.extractTripContext(finalPrompt);
+            
+            // Detect Niseko intent
+            let hasNiseko = false;
+            if (typeof detectNisekoIntent === 'function') {
+                hasNiseko = detectNisekoIntent(finalPrompt, tripContext.destination);
+            }
+            tripContext.hasNisekoIntent = hasNiseko;
+            appState.tripContext = tripContext;
+
+            // Stage 2: Generation
+            const data = await API.getPackingChecklist(tripContext, appState.clarifierAnswers);
             stopLoading();
             
             // Translate the new schema into the app's expected schema
@@ -382,12 +394,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 return {
                     category_name: cat.name,
                     items: (cat.items || []).map(item => {
+                        let itemName = item.quantity && item.quantity !== 1 ? `${item.quantity} ${item.name}` : item.name;
+                        let reasonNotes = [];
+                        if (item.includedBecause && item.includedBecause.length > 0) {
+                            reasonNotes = item.includedBecause;
+                        } else if (item.reason) {
+                            reasonNotes = [item.reason];
+                        }
+
                         return {
                             id: 'item_' + Date.now() + Math.random().toString(36).substr(2, 9),
-                            name: item.quantity && item.quantity !== 1 ? `${item.quantity}x ${item.name}` : item.name,
-                            context_note: item.reason,
-                            luggage_target: "General",
-                            packed: false
+                            name: itemName,
+                            context_note: reasonNotes.join(', '),
+                            luggage_target: item.status || "needed",
+                            packed: item.status === 'owned' // Check it off automatically if owned
                         };
                     })
                 };
@@ -402,7 +422,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             mappedCategories.forEach(cat => {
                 cat.items.forEach(item => {
-                    appState.activeTrip.saved_items_state[item.id] = false;
+                    appState.activeTrip.saved_items_state[item.id] = item.packed;
                 });
             });
 
@@ -524,29 +544,32 @@ document.addEventListener('DOMContentLoaded', () => {
         nameEl.textContent = item.name;
 
         // ── Affiliate Button Injection ───────────────────────────────────────────
-        // Ask the affiliate system if this item has a matching product.
-        // window.PackRightAffiliates is defined in affiliate.js.
-        // If it's not loaded (e.g. the script failed), we skip gracefully.
-        // The button is inserted RIGHT AFTER the item name, before the context note.
         try {
             if (window.PackRightAffiliates && window.PackRightAffiliates.isReady()) {
-                const affiliateBtn = window.PackRightAffiliates.buildAffiliateButton(item.name);
-                if (affiliateBtn) {
-                    // The name wrapper needs to allow clicks on the affiliate link
-                    // We remove pointer-events-none from the flex-1 container and
-                    // re-apply it only to nameEl and contextEl so check-on-click still works
-                    const nameWrapper = nameEl.closest('.flex-1');
-                    if (nameWrapper) {
-                        nameWrapper.classList.remove('pointer-events-none');
-                        nameEl.style.pointerEvents = 'none';
-                        contextEl.style.pointerEvents = 'none';
-                        // Insert affiliate button between item name and context note
-                        nameEl.parentNode.insertBefore(affiliateBtn, contextEl);
+                const prod = window.PackRightAffiliates.findAffiliateMatch(item.name);
+                let showAffiliate = true;
+
+                if (prod && typeof shouldShowAffiliateInsideChecklist === 'function' && typeof nisekoAffiliateCandidates !== 'undefined') {
+                    const candidate = nisekoAffiliateCandidates.find(c => c.displayName.toLowerCase() === prod.label.toLowerCase() || c.amazonTagKey === prod.id);
+                    if (candidate && appState.tripContext) {
+                        showAffiliate = shouldShowAffiliateInsideChecklist(candidate, appState.tripContext, (item.luggage_target || '').toLowerCase());
+                    }
+                }
+
+                if (prod && showAffiliate) {
+                    const affiliateBtn = window.PackRightAffiliates.buildAffiliateButton(item.name);
+                    if (affiliateBtn) {
+                        const nameWrapper = nameEl.closest('.flex-1');
+                        if (nameWrapper) {
+                            nameWrapper.classList.remove('pointer-events-none');
+                            nameEl.style.pointerEvents = 'none';
+                            contextEl.style.pointerEvents = 'none';
+                            nameEl.parentNode.insertBefore(affiliateBtn, contextEl);
+                        }
                     }
                 }
             }
         } catch (affiliateErr) {
-            // Affiliate button injection failed silently — item renders as normal
             console.warn('[PackRight Affiliates] Button injection failed for:', item.name, affiliateErr.message);
         }
         
@@ -566,7 +589,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 nameEl.classList.add('line-through', 'opacity-50');
                 badgeEl.classList.add('bg-neutralText/10', 'text-neutralText/50');
-                badgeEl.classList.remove('bg-blue-100', 'text-blue-700', 'bg-green-100', 'text-green-700', 'bg-orange-100', 'text-orange-700');
+                badgeEl.classList.remove('bg-blue-100', 'text-blue-700', 'bg-green-100', 'text-green-800', 'bg-purple-100', 'text-purple-800', 'bg-gray-100', 'text-gray-600', 'bg-orange-100', 'text-orange-700');
             } else {
                 checkboxBtn.classList.remove('bg-success', 'border-success');
                 checkboxBtn.classList.add('border-neutralText/30');
@@ -576,12 +599,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 badgeEl.classList.remove('bg-neutralText/10', 'text-neutralText/50');
                 
                 const lowerTarget = (item.luggage_target || '').toLowerCase();
-                if (lowerTarget.includes('carry')) {
-                    badgeEl.classList.add('bg-blue-100', 'text-blue-700');
-                } else if (lowerTarget.includes('check')) {
-                    badgeEl.classList.add('bg-green-100', 'text-green-700');
-                } else {
+                if (lowerTarget === 'owned') {
+                    badgeEl.classList.add('bg-green-100', 'text-green-800');
+                    badgeEl.textContent = 'Owned';
+                } else if (lowerTarget === 'rent') {
+                    badgeEl.classList.add('bg-purple-100', 'text-purple-800');
+                    badgeEl.textContent = 'Rent';
+                } else if (lowerTarget === 'optional') {
+                    badgeEl.classList.add('bg-gray-100', 'text-gray-600');
+                    badgeEl.textContent = 'Optional';
+                } else if (lowerTarget === 'needed') {
                     badgeEl.classList.add('bg-orange-100', 'text-orange-700');
+                    badgeEl.textContent = 'Needed';
+                } else {
+                    badgeEl.classList.add('bg-blue-100', 'text-blue-700');
+                    badgeEl.textContent = item.luggage_target;
                 }
             }
         }
@@ -672,6 +704,77 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         updateProgress();
+
+        // ── Niseko Module & Unrelated Notice ────────────────────────────────────
+        try {
+            const nisekoModule = document.getElementById('nisekoPermanentModule');
+            const noticeModule = document.getElementById('unrelatedDestinationNotice');
+            const isNisekoPage = window.location.pathname.includes('niseko-skiing');
+
+            if (appState.tripContext && typeof nisekoAffiliateCandidates !== 'undefined') {
+                const hasIntent = appState.tripContext.hasNisekoIntent;
+                
+                // Show notice if we are on the Niseko page but generating a non-Niseko trip
+                if (noticeModule) {
+                    if (isNisekoPage && !hasIntent) {
+                        noticeModule.classList.remove('hidden');
+                    } else {
+                        noticeModule.classList.add('hidden');
+                    }
+                }
+
+                // Show Niseko permanent module if there's Niseko intent
+                if (nisekoModule) {
+                    if (hasIntent) {
+                        nisekoModule.classList.remove('hidden');
+                        const moduleItems = document.getElementById('nisekoModuleItems');
+                        if (moduleItems) {
+                            moduleItems.innerHTML = ''; // clear
+                            nisekoAffiliateCandidates.forEach(candidate => {
+                                // Add candidate to UI
+                                const itemRow = document.createElement('div');
+                                itemRow.className = "flex justify-between items-center bg-white p-3 rounded-lg shadow-sm";
+                                
+                                const nameSpan = document.createElement('span');
+                                nameSpan.className = "text-sm font-medium text-on-surface";
+                                nameSpan.textContent = candidate.displayName;
+                                
+                                const actionBtn = document.createElement('a');
+                                actionBtn.className = "text-xs px-3 py-1 bg-brand-terracotta text-white rounded-md hover:bg-brand-terracotta-dark transition-colors";
+                                actionBtn.textContent = candidate.visibleLabel;
+                                actionBtn.target = "_blank";
+                                actionBtn.rel = "noopener noreferrer";
+                                
+                                // Lookup Amazon URL from PackRightAffiliates if available
+                                if (window.PackRightAffiliates) {
+                                    const prod = window.PackRightAffiliates.findAffiliateMatch(candidate.displayName);
+                                    if (prod) {
+                                        const url = window.PackRightAffiliates.getAffiliateLink(prod);
+                                        if (url) {
+                                            actionBtn.href = url;
+                                        } else {
+                                            actionBtn.href = "#";
+                                        }
+                                    } else {
+                                        actionBtn.href = "#";
+                                    }
+                                } else {
+                                    actionBtn.href = "#";
+                                }
+                                
+                                itemRow.appendChild(nameSpan);
+                                itemRow.appendChild(actionBtn);
+                                moduleItems.appendChild(itemRow);
+                            });
+                        }
+                    } else {
+                        nisekoModule.classList.add('hidden');
+                    }
+                }
+            }
+        } catch (e) {
+            console.warn("Failed to render Niseko modules", e);
+        }
 
         // ── Disclosure Line ─────────────────────────────────────────────────────
         // Amazon Associates ToS requires this disclosure whenever affiliate links

@@ -513,6 +513,74 @@
       "links": {
         "default": "https://www.airalo.com"
       }
+    },
+    {
+      "id": "waterproof-walking-boots",
+      "name": "Waterproof Winter Walking Boots",
+      "label": "Find on Amazon \u2192",
+      "keywords": [
+        "waterproof walking boots",
+        "winter boots",
+        "snow boots",
+        "insulated boots"
+      ],
+      "links": {
+        "default": "https://www.amazon.com/s?k=waterproof+winter+walking+boots&tag=PACKRIGHT-21"
+      }
+    },
+    {
+      "id": "carry-on-suitcase",
+      "name": "Expandable Carry-On Suitcase",
+      "label": "Find on Amazon \u2192",
+      "keywords": [
+        "carry-on suitcase",
+        "expandable suitcase",
+        "cabin luggage",
+        "compact luggage"
+      ],
+      "links": {
+        "default": "https://www.amazon.com/s?k=expandable+carry-on+suitcase&tag=PACKRIGHT-21"
+      }
+    },
+    {
+      "id": "action-camera",
+      "name": "Action Camera / GoPro",
+      "label": "Find on Amazon \u2192",
+      "keywords": [
+        "action camera",
+        "gopro",
+        "waterproof camera",
+        "travel camera"
+      ],
+      "links": {
+        "default": "https://www.amazon.com/s?k=action+camera+travel&tag=PACKRIGHT-21"
+      }
+    },
+    {
+      "id": "arctic-parka",
+      "name": "Insulated Arctic Parka",
+      "label": "Find on Amazon \u2192",
+      "keywords": [
+        "arctic parka",
+        "heavy winter coat",
+        "insulated winter coat"
+      ],
+      "links": {
+        "default": "https://www.amazon.com/s?k=insulated+arctic+parka+winter+coat&tag=PACKRIGHT-21"
+      }
+    },
+    {
+      "id": "garment-steamer",
+      "name": "Portable Garment Steamer",
+      "label": "Find on Amazon \u2192",
+      "keywords": [
+        "garment steamer",
+        "travel steamer",
+        "clothes steamer"
+      ],
+      "links": {
+        "default": "https://www.amazon.com/s?k=portable+travel+garment+steamer&tag=PACKRIGHT-21"
+      }
     }
   ]
 }
